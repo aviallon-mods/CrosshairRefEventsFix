@@ -1,0 +1,100 @@
+name: build
+
+# CrosshairRefEventsFix, ported to Skyrim AE 1.7.104.
+#
+# The whole port is the CommonLibSSE-NG revision: the 1.7.104 Address Library
+# (versionlib-1-7-104-0.bin) is format 5, and only a CommonLibSSE-NG whose
+# include/REL/IDDB.h defines Format::SSEv5 can read it. The build asserts that
+# before compiling, so a green run cannot come from the wrong reader.
+#
+# The xmake build is ours; everything from the build onwards -- the FOMOD zip
+# assembled from fomod-package.toml, the mutation-tested verify gate,
+# artifacts and the release attach -- belongs to the shared pipeline
+# aviallon-mods/modforge/.github/workflows/build-fomod.yml@main.
+
+on:
+  push:
+    branches: ["port/1.7.104"]
+    tags: ["port-*"]
+  pull_request:
+    branches: ["port/1.7.104"]
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: package + verify + release
+    permissions:
+      contents: write
+    uses: aviallon-mods/modforge/.github/workflows/build-fomod.yml@main
+    with:
+      mod_name: CrosshairRefEventsFix
+      runs_on: windows-latest
+      build_shell: bash
+      # xmake as plain commands (the reusable workflow runs commands, not the
+      # xmake-io/github-action-setup-xmake action): the pinned official zip.
+      # XMAKE_GLOBALDIR keeps xmake's global package store under the workspace
+      # so the cache step can restore it (~ is not resolved by actions/cache on
+      # Windows).
+      setup_command: |
+        set -euo pipefail
+        XMAKE_VERSION=3.1.1
+        curl -fsSL -o "$RUNNER_TEMP/xmake.zip" \
+          "https://github.com/xmake-io/xmake/releases/download/v$XMAKE_VERSION/xmake-v$XMAKE_VERSION.win64.zip"
+        unzip -qo "$RUNNER_TEMP/xmake.zip" -d "$RUNNER_TEMP/xmake"
+        echo "$RUNNER_TEMP/xmake/xmake" >> "$GITHUB_PATH"
+        echo "XMAKE_GLOBALDIR=$GITHUB_WORKSPACE/.xmake-global" >> "$GITHUB_ENV"
+      build_command: |
+        set -euo pipefail
+
+        # Pin CommonLibSSE-NG to the format-5 revision (alandtse/CommonLibVR
+        # `ng`): the revision with include/REL/IDDB.h and Format::SSEv5
+        # (format-5 / 1.7.99+ Address Library reader).
+        COMMONLIB_COMMIT=abe9ca7b7318dbc04bccfcd59fc3fb670244c2d7
+        cd lib/CommonLibSSE-NG
+        git fetch --depth 1 origin "$COMMONLIB_COMMIT"
+        git checkout --detach "$COMMONLIB_COMMIT"
+        git log --oneline -1
+        test -f include/REL/IDDB.h || { echo "::error::IDDB.h missing - wrong revision"; exit 1; }
+        grep -q "SSEv5" include/REL/IDDB.h || { echo "::error::no SSEv5 in IDDB.h"; exit 1; }
+        echo "format-5 Address Library reader present in the pinned revision"
+        cd ../..
+
+        # The xmake-mirror sometimes answers 504 while fetching a prebuilt
+        # package (directxtk); retry the configure step instead of failing.
+        ok=0
+        for i in 1 2 3 4 5 6 7 8; do
+          if xmake f -p windows -a x64 -m release -y; then ok=1; break; fi
+          echo "::warning::xmake configure attempt $i failed; retrying in 20s"
+          sleep 20
+        done
+        [ "$ok" = 1 ] || { echo "::error::xmake configure failed after 8 attempts"; exit 1; }
+
+        xmake build CrosshairRefEventsFix
+
+        # -print -quit rather than `| head -1`: no SIGPIPE race under pipefail.
+        dll=$(find build -name CrosshairRefEventsFix.dll -print -quit)
+        [ -n "$dll" ] || { echo "::error::CrosshairRefEventsFix.dll was not built"; exit 1; }
+        test -s "$dll" || { echo "::error::the built DLL is empty"; exit 1; }
+
+        # Assert the artifact carries the work, not just that a file exists.
+        # Dump first, then grep the dump: `strings | grep -q` under
+        # `set -o pipefail` reports failure when grep -q exits early and
+        # strings dies of SIGPIPE (141) EVEN ON A MATCH -- a false negative
+        # from the check itself.
+        strings -n 6 "$dll" > dll-strings.txt
+        grep -q "CrosshairRefEventsFix" dll-strings.txt || { echo "::error::plugin name missing from the DLL"; exit 1; }
+        grep -q "disablePlayerControls overloading the script engine" dll-strings.txt || { echo "::error::the fix log string is missing from the DLL"; exit 1; }
+        sha256sum "$dll" | sed 's/^/  dll  /'
+
+        # xmake's output dir moves with the mode/rule; the packager needs a
+        # deterministic input (fomod-package.toml packages this exact path).
+        mkdir -p build/out
+        cp "$dll" build/out/CrosshairRefEventsFix.dll
+      cache_paths: |
+        ${{ github.workspace }}/.xmake-global
+      # A reusable workflow call's `with:` allows neither the runner context
+      # nor hashFiles, so the key is a manually versioned literal. xmake's
+      # package store is per-version content-addressed, so staleness is safe;
+      # bump the suffix only if the store layout changes.
+      cache_key: cref-xmake-pkgs-v1-win64
+      extra_artifact: build/out/CrosshairRefEventsFix.dll

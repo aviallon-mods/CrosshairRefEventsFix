@@ -1,0 +1,51 @@
+# FOMOD package spec for aviallon-mods/modforge's tools/package_fomod.py
+# (schema: that file's docstring). CI's shared pipeline
+# (aviallon-mods/modforge/.github/workflows/build-fomod.yml@main) assembles AND
+# verifies the zip from this list; nothing else may appear in the archive.
+#
+# The payload reproduces the existing release-asset layout exactly
+# (fomod/ModuleConfig.xml, SKSE/Plugins/CrosshairRefEventsFix.dll,
+# CrosshairRefEventsFix.txt, LICENSE-CrosshairRefEventsFix.txt) plus the
+# standard stamped meta.ini at the root. The historical name keeps its
+# 1.7.104 marker and gains the honest mod version.
+
+name = "CrosshairRefEventsFix"
+zip_name = "CrosshairRefEventsFix-{version}-1.7.104-fomod.zip"
+# Single source of truth for the version (same `set_version` xmake.lua
+# stamps into the plugin log line "CrosshairRefEventsFix v0.0.2"); never
+# duplicated as a literal.
+version = { regex = ["xmake.lua", 'set_version\("([^"]+)"\)'] }
+game_name = "skyrimspecialedition"
+# The upstream author (this tree is the unofficial 1.7.104 port of
+# yeahhowaboutnooo/CrosshairRefEventsFix, MIT).
+author = "yeahhowaboutnooo"
+description = "Fixes continual CrosshairRef events being sent to the registered Papyrus scripts while the activate/use key is disabled via DisablePlayerControls, which overloads the script engine."
+nexus_name = "CrosshairRefEventsFix"
+nexus_url = "https://github.com/aviallon-mods/CrosshairRefEventsFix"
+file_category = "MAIN"
+# README-PORT.txt: "Requirements: Skyrim Special Edition / Anniversary Edition
+# 1.7.104 and SKSE64 2.2.6+ ... the plugin only uses the Address Library data
+# that SKSE/Address Library already provides."
+requirements = [
+  "30379:SKSE64",
+  "32444:Address Library for SKSE Plugins",
+]
+fomod = true
+
+[[files]]
+src = "fomod/ModuleConfig.xml"
+dest = "fomod/ModuleConfig.xml"
+
+[[files]]
+# The build command stages the DLL here from xmake's output dir (which moves
+# with the mode), so the byte-identity check has a deterministic source.
+src = "build/out/CrosshairRefEventsFix.dll"
+dest = "SKSE/Plugins/CrosshairRefEventsFix.dll"
+
+[[files]]
+src = "README-PORT.txt"
+dest = "CrosshairRefEventsFix.txt"
+
+[[files]]
+src = "LICENSE"
+dest = "LICENSE-CrosshairRefEventsFix.txt"

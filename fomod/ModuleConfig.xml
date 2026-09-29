@@ -2,13 +2,43 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
     <moduleName>CrosshairRefEventsFix (Skyrim AE 1.7.104)</moduleName>
-
-    <!-- No options: the plugin has a single, version-independent behaviour.
-         requiredInstallFiles is enough for a FOMOD with nothing to choose. -->
-    <requiredInstallFiles>
-        <file source="SKSE/Plugins/CrosshairRefEventsFix.dll" destination="SKSE/Plugins/CrosshairRefEventsFix.dll" />
-        <file source="CrosshairRefEventsFix.txt" destination="CrosshairRefEventsFix.txt" />
-    </requiredInstallFiles>
-
-    <installSteps order="Explicit" />
+    <moduleImage path=""/>
+    <installSteps order="Explicit">
+        <installStep name="Install">
+            <!-- The plugin has a single, version-independent behaviour - but the
+                 wizard must still yield at least one <plugin>: the previous
+                 config (requiredInstallFiles + empty <installSteps/>) produced
+                 ZERO <plugin>, and Amethyst's FOMOD wizard resolves
+                 `selected_plugin or first_plugin` then reads
+                 `plugin.description`; with zero plugins it dies with
+                 AttributeError: 'NoneType' object has no attribute 'description'.
+                 The payload is copied by the unconditional patterns below either
+                 way; there is nothing to choose. -->
+            <optionalFileGroups>
+                <group name="Options" type="SelectAny">
+                    <plugins>
+                        <plugin name="CrosshairRefEventsFix">
+                            <description>Fixes continual CrosshairRef events being sent to the registered Papyrus scripts while the activate/use key is disabled via DisablePlayerControls (which overloads the script engine). Rebuilt for Skyrim AE 1.7.104 against the CommonLibSSE-NG revision that reads Address Library format 5. Installs everything; nothing to choose.</description>
+                            <image path=""/>
+                            <typeDescriptor><type name="Recommended"/></typeDescriptor>
+                        </plugin>
+                    </plugins>
+                </group>
+            </optionalFileGroups>
+            <patterns>
+                <pattern name="plugin">
+                    <sourceFiles><source name="SKSE"/></sourceFiles>
+                    <destination><destination path=""/></destination>
+                </pattern>
+                <pattern name="readme">
+                    <sourceFiles><source name="CrosshairRefEventsFix.txt"/></sourceFiles>
+                    <destination><destination path=""/></destination>
+                </pattern>
+                <pattern name="license">
+                    <sourceFiles><source name="LICENSE-CrosshairRefEventsFix.txt"/></sourceFiles>
+                    <destination><destination path=""/></destination>
+                </pattern>
+            </patterns>
+        </installStep>
+    </installSteps>
 </config>

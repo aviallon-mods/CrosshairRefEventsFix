@@ -25,9 +25,12 @@ change to how the patch site is found.
   inside `PlayerCharacter::PickCrosshairReference` (Address Library id 40620),
   not by a hard-coded per-runtime byte offset. If the shape is not found the
   plugin logs an error and patches nothing.
-* CI (`.github/workflows/port-windows-1.7.104.yml`) builds the DLL and packages
-  a FOMOD archive (`fomod/ModuleConfig.xml` + `SKSE/Plugins/`) that Amethyst,
-  MO2 and Vortex install in one click.
+* CI (`.github/workflows/build.yml`) builds the DLL and packages a FOMOD
+  archive (`fomod/ModuleConfig.xml` + `SKSE/Plugins/` + the readme/license,
+  from `fomod-package.toml`) through the shared
+  [aviallon-mods/modforge](https://github.com/aviallon-mods/modforge) pipeline,
+  which verify-gates the zip before it ships. Amethyst, MO2 and Vortex install
+  it in one click.
 
 ### Build locally (Windows)
 
